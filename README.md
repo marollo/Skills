@@ -7,3 +7,4 @@ Nell'esempio precedete la skill potrebbe essere chiamata digitando /recap.
 
 # Skills
 CRUD-Backlog (crea un file CSV per gestire un progetto in modo molto semplice. Serve per aggiornare, eliminare e aggiungere nuovi compiti)
+Knowledge Check (crea un test a livello universitario per verificare l'apprendimento delle cose che si sono studiate)
