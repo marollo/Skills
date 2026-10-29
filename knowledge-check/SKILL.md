@@ -1,13 +1,15 @@
 ---
 name: "knowledge-check"
-description: "Use when the user wants to test what he or her learned from a source (PDF, web page, doc, slides, video transcript, notes) — builds a university-standard exam, grades it, and logs the result to the project to track progress. Also handles /knowledge-check help and progress."
+description: "Use when Mario wants to test what he learned from a source (PDF, web page, doc, slides, video transcript, notes) — builds a university-standard exam (Mixed format with open questions, or Closed-form with only multiple-choice, multiple-answer and true/false), grades it, and logs the result to the project to track progress. Also handles /knowledge-check help and progress."
 ---
 
 # Knowledge Check — university-standard exam from a learning source
 
-The user learns from many kinds of material and wants an honest, exam-grade check of what he actually retained. This skill runs the full cycle: **ingest the source → build an exam → The user answers → grade → save structured results → compare with earlier attempts**.
+Mario learns from many kinds of material and wants an honest, exam-grade check of what he actually retained. This skill runs the full cycle: **ingest the source → build an exam → Mario answers → grade → save structured results → compare with earlier attempts**.
 
-Also use this skill when the user only asks about his progress ("how am I doing on X?", "compare my last two tests") — in that case jump to §7.
+Mario chooses between two exam **formats** (§2): **Mixed** (the default — multiple choice, short answer, applied problems and an essay) or **Closed-form** (only multiple choice, multiple answer and true/false: quick to answer, objectively graded). Everything below applies to both formats unless a section says otherwise.
+
+Also use this skill when Mario only asks about his progress ("how am I doing on X?", "compare my last two tests") — in that case jump to §7.
 
 ## 0. Commands — check the arguments first
 
@@ -35,15 +37,20 @@ How to use it
 2. Confirm the settings (or just say "go"):
    • Level: Bachelor intro · Bachelor advanced (default) · Master
    • Length: Short ~30 min · Standard ~60 min (default) · Full ~90 min
-3. Answer the whole exam in one reply, numbered by question ("1: B", "9: …").
-   Closed book — hints are allowed but recorded.
+   • Format: Mixed (default) · Closed-form
+     (Closed-form lengths: Short 30 · Standard 80 · Full 120 questions)
+3. Answer the whole exam in one reply, numbered by question ("1: B", "9: …";
+   closed-form: "15: A, C", "27: T"). Closed book — hints are allowed but recorded.
 4. Get your grade (% + German grade 1.0–5.0, pass at 50%), feedback per question
    with the model answer and where to re-read it, and study recommendations.
 
 The exam
-Multiple choice, short answers, applied cases and an essay, covering everything
-from recall to analysis and critical evaluation. Retests avoid repeating
-questions and can focus on your weak concepts.
+Mixed format: multiple choice, short answers, applied cases and an essay,
+covering everything from recall to analysis and critical evaluation.
+Closed-form format: only multiple choice, multiple answer (select all that
+apply) and true/false — nothing to write out, objectively graded, with
+scenario-based questions to still reach application and analysis.
+Retests avoid repeating questions and can focus on your weak concepts.
 
 Where results go
 claude/knowledge-checks.jsonl in the current Claude Project — one record per
@@ -61,12 +68,12 @@ Commands
 
 ## 1. Ingest the source
 
-Read everything the user points to before writing any question. The exam may only test what the source teaches.
+Read everything Mario points to before writing any question. The exam may only test what the source teaches.
 
 | Source | How to read it |
 |---|---|
 | PDF | `Read` with `pages` (≤20 pages per call; loop for longer docs). For scanned PDFs, use the `pdf` skill's OCR guidance. |
-| Web page | `WebFetch`. If blocked, say so and ask the user to paste the text or upload a PDF — never work around the block. |
+| Web page | `WebFetch`. If blocked, say so and ask Mario to paste the text or upload a PDF — never work around the block. |
 | Word / PowerPoint | `docx` / `pptx` skill extraction guidance. |
 | Google Drive file | Google Drive `read_file_content`. |
 | Project doc | `Projects` → `project_read`. |
@@ -78,26 +85,27 @@ Several sources together are fine — treat them as one syllabus.
 
 Then build a private **content map** (write it to the scratchpad as `content_map.md`):
 
-- 5–15 **learning objectives**, phrased as "the user can …" (e.g. "explain why X causes Y", "calculate Z from given data").
+- 5–15 **learning objectives**, phrased as "Mario can …" (e.g. "explain why X causes Y", "calculate Z from given data").
 - Key **concepts**, each with a short slug (`crawl-budget`, `bayes-theorem`) and where it appears in the source (page, section, heading, timestamp). Slugs must stay the same across tests of the same topic, so reuse existing slugs from the log (§6) when the topic was tested before.
 - A stable **topic slug** for the whole subject (e.g. `technical-seo-fundamentals`). Check the log for an existing slug first.
 
-If the source is too thin for a meaningful exam (e.g. under ~1 page of substance), tell the user and suggest a short quiz or more material instead.
+If the source is too thin for a meaningful exam (e.g. under ~1 page of substance), tell Mario and suggest a short quiz or more material instead.
 
 ## 2. Confirm scope and settings (one short message)
 
-Tell the user in 2–3 lines what you understood (topic, the main objectives), then confirm settings. Offer defaults so he can just say "go":
+Tell Mario in 2–3 lines what you understood (topic, the main objectives), then confirm settings. Offer defaults so he can just say "go":
 
 - **Level**: Bachelor introductory · Bachelor advanced (default) · Master
-- **Length**: Short (~30 min, ~30 pts) · Standard (~60 min, ~60 pts, default) · Full (~90 min, ~90 pts)
-- **Language**: same as the source unless the user asks otherwise
+- **Length**: Short (~30 min, ~30 pts) · Standard (~60 min, ~60 pts, default) · Full (~90 min, ~90 pts). For the Closed-form format the lengths are defined by question count instead — Short 30 · Standard 80 · Full 120 questions (points in §3).
+- **Format**: Mixed (default) — multiple choice, short answer, applied problems, essay · Closed-form — only multiple choice, multiple answer and true/false. If Mario already said which he wants (e.g. "only multiple choice and true/false", "no essays", "quick closed questions"), use Closed-form without asking again; if he says nothing, default to Mixed.
+- **Language**: same as the source unless Mario asks otherwise
 - **Focus** (only on retests): full coverage, or weighted toward the weak concepts from last time (default: ~50% weak concepts, the rest normal coverage)
 
 Use `AskUserQuestion` when available.
 
 ## 3. Build the exam — university standards
 
-Design it the way a careful university examiner would:
+Design it the way a careful university examiner would, using the **Format** chosen in §2 (Mixed unless Mario picked Closed-form). Constructive alignment, the Bloom distribution, the general quality rules and the answer key apply to both formats; only the question types differ.
 
 **Constructive alignment.** Every question maps to one learning objective and one concept. Every objective is covered by at least one question; heavier topics in the source get more points.
 
@@ -109,12 +117,37 @@ Design it the way a careful university examiner would:
 | Apply / Analyze | 40% | 45% | 45% |
 | Evaluate / Create | 15% | 25% | 40% |
 
-**Mixed question types** (Standard length example: ~8 MCQ, ~4 short answer, ~2 applied problems/cases, 1 essay):
+**Question types — Mixed format** (Standard length example: ~8 MCQ, ~4 short answer, ~2 applied problems/cases, 1 essay):
 
 - *Multiple choice* — single best answer, 4 options, plausible distractors built from real misconceptions; no "all/none of the above", no giveaway grammar or length cues, answer position varied. 1–2 pts each.
 - *Short answer* — 2–5 sentences; precise terminology expected. 3–5 pts.
 - *Applied problem / case* — a new scenario not copied from the source, requiring the concepts to be used (calculation, diagnosis, design, decision). 6–10 pts, multi-part allowed.
 - *Essay / critical discussion* — compare, evaluate, argue with justification. 10–15 pts.
+
+**Question types — Closed-form format.** Exactly three closed types and nothing else: no short answer, essay, or calculation to write out, even when the source is quantitative or argumentative — express those skills through the closed types instead (see "Reaching higher levels" below). Nothing has to be written, so Mario answers fast and grading is objective.
+
+| Type | Format | Points |
+|---|---|---|
+| *Multiple choice* (`mcq`) | Single best answer, 4 options (A–D). | 2 |
+| *Multiple answer* (`multi`) | "Select all that apply", 5 options (A–E), each independently true or false. | 3 |
+| *True / false* (`tf`) | One self-contained statement to judge. | 1 |
+
+| Length | Multiple choice | Multiple answer | True / false | Questions | Points |
+|---|---|---|---|---|---|
+| Short (~30 min) | 14 | 8 | 8 | 30 | 60 |
+| Standard (~60 min) | 38 | 21 | 21 | 80 | 160 |
+| Full (~90 min) | 56 | 32 | 32 | 120 | 240 |
+
+These question counts and point totals apply to the Closed-form format only; they replace the "~30 / ~60 / ~90 pts" figures of §2, which belong to the Mixed format. The counts mean a fast pace — about 1 minute per question for Short and about 45 seconds for Standard and Full — so keep stems tight: a scenario should be a few lines, not a page, and don't pad exams with trivia to reach the count; if the source can't support that many distinct questions, say so and suggest a shorter length instead.
+
+True/false stays at or below ~15% of the points: a blind guess is right half the time, so spending the points on multiple choice and multiple answer makes the score reflect knowledge rather than luck.
+
+*Reaching higher levels with closed questions.* Recall is easy in any format; the Apply-and-above share is what decides the exam's quality, so build it into the stem:
+- *Apply* — give a short new scenario or data snippet (not copied from the source) and ask which action, diagnosis or result is correct. For calculations, use the results of common slips as distractors.
+- *Analyze* — present a situation, argument or output and ask which statements about causes, relationships or flaws are correct (a good fit for multiple answer).
+- *Evaluate* — ask which option is the best-justified decision, which critique of a given plan is valid, or which claims the evidence actually supports.
+- *Create* — ask which of several candidate designs or plans best meets stated constraints, since composing from scratch isn't possible in a closed format.
+- True/false is best at Remember/Understand, but a scenario-based statement ("In the situation above, switching to X would reduce Y") reaches Apply.
 
 **Quality rules.**
 - Questions test understanding, not recall of trivial wording, page numbers, or author names — unless the author/date is itself central to the topic.
@@ -122,11 +155,15 @@ Design it the way a careful university examiner would:
 - No question gives away another question's answer.
 - Retests: don't repeat previous questions verbatim (check `questions[].text` in the log); test the same concept with a new angle or scenario.
 
-**Answer key first.** Before showing the exam, write to the scratchpad `answer_key.md`: for each question, the model answer, an analytic rubric (what earns each point, what earns partial credit), and the source reference. This keeps grading consistent and must not be shown to the user before he submits.
+**Additional quality rules — Closed-form format.**
+- *Multiple answer*: the stem says "select all that apply". Each option must be clearly true or clearly false on its own — never make one option depend on another, and never use "A and B" combinations. Vary the number of correct options (mostly 2–3, sometimes 1 or 4, never 0 or all 5) so counting can't be used as a strategy.
+- *True/false*: one idea per statement, written as a complete sentence. Avoid double negatives and absolute words ("always", "never", "only") unless the source really makes an absolute claim — otherwise they act as giveaways. Keep the split roughly balanced (about 40–60% true) and make false statements plausible — the opposite of a nearby true fact or a typical misconception, not obviously absurd.
+
+**Answer key first.** Before showing the exam, write to the scratchpad `answer_key.md`: for each question, the model answer, an analytic rubric (what earns each point, what earns partial credit), and the source reference. This keeps grading consistent and must not be shown to Mario before he submits. For the Closed-form format the "rubric" is simply the correct answer (letter, letters, or True/False) plus one line per wrong option naming the misconception it targets, and — for a false statement — the corrected statement; these lines power the feedback in §5.
 
 ## 4. Present the exam (whole exam at once)
 
-Format like a real exam paper:
+Format like a real exam paper. This layout is for the **Mixed** format; for **Closed-form** use the layout right after it.
 
 ```
 EXAM — <Topic>
@@ -145,13 +182,41 @@ Part D — Essay (<n> pts)
 …
 ```
 
-For long exams, publish it as a doc or file only if the user asks; by default present it in the chat.
+**Closed-form layout** (30 / 80 / 120 questions for Short / Standard / Full; the time guide is the length's minutes, so the pace is tight):
 
-Exam integrity: while the exam is open, don't reveal answers or hint at them. If the user asks for a hint or a clarification, clarify the *question's wording* only, and note in the record that a hint was given. If he stops midway, grade what he submitted and mark unanswered questions as 0 with `"answered": false`.
+```
+EXAM — <Topic>
+Level: <level> · Format: Closed-form · Time guide: <n> min · Total: <n> points · Pass mark: 50%
+Instructions: closed book; answer all questions; reply with your answers
+numbered by question, e.g. "1: B", "15: A, C", "27: T" (true) or "28: F" (false).
+Part A has exactly one correct answer; Part B has one or more — select every
+option that applies and none that don't (wrong selections reduce your points).
+
+Part A — Multiple choice, one correct answer (<n> pts)
+1. [2 pts] …
+   A) …  B) …  C) …  D) …
+Part B — Multiple answer, select all that apply (<n> pts)
+15. [3 pts] … (select all that apply)
+   A) …  B) …  C) …  D) …  E) …
+Part C — True / false (<n> pts)
+23. [1 pt] <statement> — True or False?
+```
+
+Accept any unambiguous answer format ("1B 2AC 3T", a list, a table).
+
+For long exams, publish it as a doc or file only if Mario asks; by default present it in the chat.
+
+Exam integrity: while the exam is open, don't reveal answers or hint at them. If Mario asks for a hint or a clarification, clarify the *question's wording* only, and note in the record that a hint was given. If he stops midway, grade what he submitted and mark unanswered questions as 0 with `"answered": false`.
 
 ## 5. Grade and give feedback
 
 Grade strictly against `answer_key.md` — same rigor a university examiner would use: credit correct substance even if phrased differently, give partial credit per the rubric, deduct for factual errors even inside an otherwise good answer, and don't reward length.
+
+**Closed-form scoring.** Closed questions leave no room for interpretation, so apply these rules exactly and run the arithmetic in Python rather than in your head — a mis-added point changes the grade.
+- *Multiple choice* — full points if the chosen option is the correct one, otherwise 0.
+- *True/false* — full point if the verdict matches, otherwise 0.
+- *Multiple answer* — +1 for every correct option ticked, −1 for every wrong option ticked; points = max(0, net ÷ number of correct options) × question points. Example: 3 pts, correct set {A, C}; answering A, C, D gives (2 − 1) ÷ 2 × 3 = 1.5 pts; answering all five options gives 0. The penalty is what makes "tick everything" a losing strategy.
+- Unanswered questions score 0.
 
 **Grade scale.** Report percentage plus German university grade:
 
@@ -163,17 +228,17 @@ Grade strictly against `answer_key.md` — same rigor a university examiner woul
 
 1. Headline: points, %, grade, pass/fail, and — if there's a previous attempt on this topic — the change (e.g. "+12 pts vs 2026-09-02").
 2. Per-question table: #, points earned/possible, short verdict.
-3. For every question not fully correct: what was missing or wrong, the model answer (condensed), and the source reference so the user can re-read it.
+3. For every question not fully correct: what was missing or wrong, the model answer (condensed), and the source reference so Mario can re-read it. For Closed-form questions, also name the misconception the wrong option reflects (from the answer key) and, for multiple answer, say which options were missed and which were wrongly ticked.
 4. Mastery by concept and by Bloom level (where he's solid, where he isn't).
 5. 3–5 concrete study recommendations tied to specific source sections, plus a suggested retest date (≈3–7 days for weak areas).
 
-Be honest and specific; a 2.7 is a 2.7.
+Be honest and specific; a 2.7 is a 2.7. For Closed-form exams, mention it when a result sits near the pass mark (roughly 50–65%) and a good share of the points came from true/false or lucky picks — closed questions can be partly guessed, so the score is a little less certain there than it looks.
 
 ## 6. Save the result as structured data
 
 Results live in the **attached Claude Project** as `claude/knowledge-checks.jsonl` — one JSON object per line, one line per exam.
 
-1. `project_read` the file fresh (it may not exist yet — then start empty). If no project is attached to the session, tell the user and offer the record as a downloadable `.json` file instead.
+1. `project_read` the file fresh (it may not exist yet — then start empty). If no project is attached to the session, tell Mario and offer the record as a downloadable `.json` file instead.
 2. Parse it with Python (`json.loads` per line) in the scratchpad; never edit it by hand.
 3. Append the new record, validate that every line parses, and `project_write` the **whole** file back to the same path (the write replaces it).
 4. Confirm in one line that the result was saved.
@@ -193,7 +258,7 @@ Record schema (`schema_version: 1`):
     {"type": "pdf", "title": "SEO Starter Guide", "locator": "SEO_Guide.pdf, pp. 1-42"},
     {"type": "web", "title": "Crawl budget explained", "locator": "https://…"}
   ],
-  "settings": {"level": "bachelor_advanced", "length": "standard", "language": "en", "focus": "full"},
+  "settings": {"level": "bachelor_advanced", "length": "standard", "format": "mixed", "language": "en", "focus": "full"},
   "score": {"points_earned": 44.5, "points_possible": 60, "percent": 74.2, "grade_de": 2.7, "passed": true},
   "by_bloom": {
     "remember_understand": {"earned": 16, "possible": 18},
@@ -226,14 +291,14 @@ Record schema (`schema_version: 1`):
 }
 ```
 
-Field rules: `result` ∈ `correct | partial | incorrect | unanswered`; `mastery` ∈ `strong` (≥80%) `| partial` (50–79%) `| weak` (<50%); `level` ∈ `bachelor_intro | bachelor_advanced | master`; `attempt_number` counts prior records with the same `topic_slug` + 1; `previous_test_id` is the latest earlier record with that slug. Store the question text (for no-repeat checks) but not the user's full answer text — a one-line gist in `feedback` is enough.
+Field rules: `format` ∈ `mixed | closed` (records written before this field existed count as `mixed`); question `type` ∈ `mcq | short | applied | essay` in the Mixed format and `mcq | multi | tf` in the Closed-form format; `partial` results can occur for every type except `mcq` and `tf`. `result` ∈ `correct | partial | incorrect | unanswered`; `mastery` ∈ `strong` (≥80%) `| partial` (50–79%) `| weak` (<50%); `level` ∈ `bachelor_intro | bachelor_advanced | master`; `attempt_number` counts prior records with the same `topic_slug` + 1; `previous_test_id` is the latest earlier record with that slug. Store the question text (for no-repeat checks) but not Mario's full answer text — a one-line gist in `feedback` is enough.
 
 ## 7. Progress and comparisons
 
-When a topic has earlier attempts, or the user asks about progress:
+When a topic has earlier attempts, or Mario asks about progress:
 
 - Load the log (§6 steps 1–2) and filter by `topic_slug` (or list all topics if he asks generally).
 - Show a compact table: date, level, %, grade, and the concepts that moved (weak → strong, or regressions).
-- Only compare like with like: flag when levels or source sets differ between attempts, because the scores aren't directly comparable.
-- If a `next_review` date has passed for a topic, mention it when the user asks what to review.
+- Only compare like with like: flag when levels or source sets differ between attempts, because the scores aren't directly comparable. The same goes for `format`: a Mixed exam (with written answers) and a Closed-form exam measure different things, especially for Evaluate/Create, so say so when a trend crosses that line.
+- If a `next_review` date has passed for a topic, mention it when Mario asks what to review.
 - For 3+ attempts on a topic, offer a small chart (use the `dataviz` skill) of % over time and per-concept mastery.
