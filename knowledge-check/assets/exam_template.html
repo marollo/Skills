@@ -1,0 +1,500 @@
+<title>__EXAM_TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* Layout: one centred exam paper. Sticky status bar (clock, progress, question map) above a single column of questions, with the submit step at the end. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #1a2230;
+  --muted: #566274;
+  --line: #d6dce5;
+  --accent: #2646a6;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5eafa;
+  --ok: #17704a;
+  --warn: #9a5700;
+  --warn-soft: #fbefd9;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141b; --surface: #171d27; --ink: #e5e9f0; --muted: #9aa5b6; --line: #2a3342;
+    --accent: #91aaff; --accent-ink: #0f1420; --accent-soft: #1f2a47;
+    --ok: #5cc690; --warn: #e3a64c; --warn-soft: #33270f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141b; --surface: #171d27; --ink: #e5e9f0; --muted: #9aa5b6; --line: #2a3342;
+  --accent: #91aaff; --accent-ink: #0f1420; --accent-soft: #1f2a47;
+  --ok: #5cc690; --warn: #e3a64c; --warn-soft: #33270f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 17px/1.55 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 56px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 780px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font: 600 clamp(1.5rem, 4.5vw, 2.1rem)/1.15 var(--font-body); text-wrap: balance; }
+code, pre { font-family: var(--font-mono); font-size: .88em; }
+code { background: var(--accent-soft); padding: .08em .35em; border-radius: 4px; }
+pre { overflow-x: auto; background: var(--accent-soft); padding: 12px 14px; border-radius: 6px; margin: 0; }
+pre code { background: none; padding: 0; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* paper head */
+.paper-head { display: grid; gap: 12px; padding-top: 8px; }
+.kicker { font: 500 .75rem/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 0; font: 400 .85rem/1.3 var(--font-ui); color: var(--muted); }
+.meta div { display: grid; gap: 2px; }
+.meta dt { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.meta dd { margin: 0; color: var(--ink); font-family: var(--font-mono); font-size: .88rem; }
+.rules { font: 400 .9rem/1.5 var(--font-ui); color: var(--muted); max-width: 62ch; border-left: 2px solid var(--line); padding-left: 12px; }
+
+/* sticky status bar */
+.sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 8px; }
+.bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: 400 .85rem/1.2 var(--font-ui); }
+.clock { font-family: var(--font-mono); font-size: .9rem; white-space: nowrap; }
+.clock.over { color: var(--warn); }
+.prog { display: grid; gap: 4px; min-width: 0; }
+.prog-text { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+.ghost { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.ghost:hover { border-color: var(--accent); color: var(--accent); }
+.map { margin-top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; max-height: 38vh; overflow: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { min-width: 2.3rem; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); font: 500 .78rem/1 var(--font-mono); cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip.done { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip.flag { box-shadow: inset 0 -3px 0 var(--warn); }
+.map-key { flex-basis: 100%; font: 400 .75rem/1.3 var(--font-ui); color: var(--muted); }
+
+/* parts and questions */
+.part { display: grid; gap: 14px; }
+.part-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+.part-head h2 { font: 600 1.15rem/1.2 var(--font-body); }
+.part-head span { font: 400 .8rem/1 var(--font-mono); color: var(--muted); }
+.part-note { font: 400 .88rem/1.45 var(--font-ui); color: var(--muted); }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 4px 14px; scroll-margin-top: calc(120px + env(safe-area-inset-top, 0px)); }
+.q.flagged { border-color: var(--warn); }
+.qnum { font: 500 1.35rem/1.2 var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.qbody { display: grid; gap: 12px; min-width: 0; }
+.qtags { display: flex; flex-wrap: wrap; gap: 6px 10px; font: 400 .72rem/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qtags b { font-weight: 600; color: var(--ink); font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
+.qtext p + p, .qtext ul + p, .qtext p + ul, .ctx p + p { margin-top: .6em; }
+.qtext ul, .ctx ul { margin: 0; padding-left: 1.2em; }
+.ctx { background: var(--accent-soft); border-radius: 6px; padding: 10px 14px; font-size: .95rem; display: grid; gap: .5em; }
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: 2rem minmax(0, 1fr); align-items: start; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; position: relative; }
+.opt:hover { border-color: var(--accent); }
+.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.letter { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; border: 1px solid var(--line); border-radius: 50%; font: 500 .78rem/1 var(--font-mono); color: var(--muted); }
+.multi .letter { border-radius: 4px; }
+.opt input:checked + .letter { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.opt input:focus-visible + .letter { outline: 2px solid var(--accent); outline-offset: 2px; }
+.otext { padding-top: .1rem; }
+.otext p { margin: 0; }
+.tf { display: flex; flex-wrap: wrap; gap: 8px; }
+.tf .opt { grid-template-columns: 2rem auto; min-width: 9rem; }
+.sub { display: grid; gap: 6px; }
+.sub-head { display: flex; gap: 10px; align-items: baseline; }
+.sub-head b { font: 500 .9rem/1.4 var(--font-mono); color: var(--accent); }
+.sub-head em { font: 400 .75rem/1 var(--font-mono); color: var(--muted); font-style: normal; margin-left: auto; white-space: nowrap; }
+textarea { width: 100%; min-height: 7rem; resize: vertical; font: 400 .95rem/1.55 var(--font-ui); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+textarea:focus { border-color: var(--accent); }
+.wc { font: 400 .72rem/1 var(--font-mono); color: var(--muted); text-align: right; }
+.qfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font: 400 .8rem/1.2 var(--font-ui); color: var(--muted); }
+.qfoot label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.qfoot input { accent-color: var(--warn); }
+.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+.link[hidden] { display: none; }
+
+/* submit, review, done */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 14px; }
+.panel h2 { font: 600 1.2rem/1.2 var(--font-body); }
+.panel p, .panel li { font: 400 .92rem/1.5 var(--font-ui); }
+.panel ul { margin: 0; padding-left: 1.2em; }
+.warn { background: var(--warn-soft); color: var(--ink); border-radius: 6px; padding: 10px 12px; font: 400 .9rem/1.45 var(--font-ui); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; padding: 10px 18px; font: 600 .92rem/1 var(--font-ui); cursor: pointer; }
+.btn:hover { filter: brightness(1.08); }
+.btn.sec { background: none; color: var(--ink); border-color: var(--line); font-weight: 500; }
+.btn.sec:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.status { font: 500 .9rem/1.4 var(--font-ui); }
+.status.good { color: var(--ok); }
+.status.bad { color: var(--warn); }
+.payload { font: 400 .78rem/1.45 var(--font-mono); min-height: 9rem; }
+details > summary { cursor: pointer; font: 500 .85rem/1.4 var(--font-ui); color: var(--accent); }
+.lock textarea, .lock .opt { cursor: default; }
+.lock .opt:hover { border-color: var(--line); }
+.lock .opt:has(input:checked):hover { border-color: var(--accent); }
+
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .q { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+  .qnum { font-size: 1.1rem; }
+  .bar { grid-template-columns: 1fr auto; }
+  .prog { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+
+<div class="wrap lockable" id="root">
+  <header class="paper-head">
+    <p class="kicker" id="kicker"></p>
+    <h1 id="title"></h1>
+    <dl class="meta" id="meta"></dl>
+    <p class="rules" id="rules"></p>
+  </header>
+
+  <div class="sticky">
+    <div class="bar">
+      <div class="clock" id="clock">00:00</div>
+      <div class="prog">
+        <div class="prog-text" id="progText"></div>
+        <div class="track"><div class="fill" id="fill"></div></div>
+      </div>
+      <button class="ghost" id="mapBtn" type="button" aria-expanded="false" aria-controls="map"></button>
+    </div>
+    <div class="map" id="map" hidden></div>
+  </div>
+
+  <main id="paper" style="display:grid;gap:28px"></main>
+
+  <section class="panel" id="submitZone">
+    <h2 id="submitTitle"></h2>
+    <p id="submitHint"></p>
+    <div class="row"><button class="btn" id="reviewBtn" type="button"></button></div>
+  </section>
+
+  <section class="panel" id="review" hidden>
+    <h2 id="reviewTitle"></h2>
+    <div id="reviewBody" style="display:grid;gap:12px"></div>
+    <label for="note" id="noteLabel" style="font:500 .85rem/1.3 var(--font-ui)"></label>
+    <textarea id="note" style="min-height:4.5rem"></textarea>
+    <div class="row">
+      <button class="btn" id="submitBtn" type="button"></button>
+      <button class="btn sec" id="backBtn" type="button"></button>
+    </div>
+  </section>
+
+  <section class="panel" id="done" hidden>
+    <h2 id="doneTitle"></h2>
+    <p class="status" id="doneStatus"></p>
+    <div class="row">
+      <button class="btn sec" id="copyBtn" type="button"></button>
+      <button class="btn sec" id="saveBtn" type="button" hidden></button>
+    </div>
+    <details id="payloadBox"><summary id="payloadSummary"></summary><textarea class="payload" id="payload" readonly spellcheck="false"></textarea></details>
+  </section>
+</div>
+
+<script type="application/json" id="exam-data">__EXAM_DATA__</script>
+<script>
+(function () {
+  "use strict";
+  var EXAM = JSON.parse(document.getElementById("exam-data").textContent);
+  var T = Object.assign({
+    kicker: "Exam", level: "Level", format: "Format", time: "Time guide", points: "Total", pass: "Pass mark",
+    minutes: "min", pts: "pts", pt: "pt", answered: "answered", map: "Question map", closeMap: "Hide map",
+    mapKey: "Filled = answered. Orange underline = flagged to revisit.",
+    flag: "Flag to revisit", clear: "Clear answer", words: "words",
+    mcq: "Multiple choice", multi: "Select all that apply", tf: "True / false", short: "Short answer", applied: "Applied problem", essay: "Essay",
+    t: "True", f: "False", placeholder: "Write your answer here",
+    submitTitle: "Finished?", submitHint: "You will see a summary first and can still go back and change answers.",
+    reviewBtn: "Review and submit", reviewTitle: "Before you submit",
+    allAnswered: "Every question has an answer.", unanswered: "Unanswered", flagged: "Flagged to revisit",
+    unansweredWarn: "Unanswered questions score 0 points.",
+    note: "Note for the examiner (optional): anything unclear in a question's wording",
+    submit: "Submit final answers", back: "Back to the exam",
+    doneTitle: "Exam submitted",
+    savedOk: "Your answers are saved with this page. Go back to the chat and tell Claude you are done; it will grade the exam.",
+    savedFail: "The answers could not be saved automatically. Copy them and paste them into the chat so Claude can grade the exam.",
+    copy: "Copy answers", copied: "Copied", copyFail: "Copy blocked here. Select the text below and copy it manually.",
+    save: "Save as file", payloadSummary: "Show the answers as text",
+    overtime: "over time guide"
+  }, EXAM.ui || {});
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function inline(s) { return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>"); }
+  function rich(s) {
+    var blocks = [];
+    s = String(s).replace(/```(?:\w+)?\n?([\s\S]*?)```/g, function (m, c) { blocks.push(c.replace(/\n$/, "")); return "\n\n\u0000" + (blocks.length - 1) + "\u0000\n\n"; });
+    return s.split(/\n{2,}/).map(function (p) {
+      p = p.trim(); if (!p) return "";
+      var m = p.match(/^\u0000(\d+)\u0000$/);
+      if (m) return "<pre><code>" + esc(blocks[+m[1]]) + "</code></pre>";
+      var lines = p.split("\n");
+      if (lines.every(function (l) { return /^\s*[-•]\s+/.test(l); }))
+        return "<ul>" + lines.map(function (l) { return "<li>" + inline(l.replace(/^\s*[-•]\s+/, "")) + "</li>"; }).join("") + "</ul>";
+      return "<p>" + lines.map(inline).join("<br>") + "</p>";
+    }).join("");
+  }
+  function ptsLabel(n) { return n + " " + (n === 1 ? T.pt : T.pts); }
+  function mmss(sec) { var m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s; }
+
+  // ---------- state ----------
+  var DRAFT_KEY = "kc-draft:" + EXAM.exam_id;
+  var state = { answers: {}, flagged: {}, elapsed: 0, running: false, submitted: false, payload: null, saved: false };
+  var questions = [];
+  EXAM.parts.forEach(function (p) { p.questions.forEach(function (q) { questions.push(q); }); });
+
+  function keysOf(q) {
+    return q.subparts ? q.subparts.map(function (sp) { return String(q.id) + sp.label; }) : [String(q.id)];
+  }
+  function hasValue(v) { return Array.isArray(v) ? v.length > 0 : (v !== undefined && String(v).trim() !== ""); }
+  function isAnswered(q) { return keysOf(q).some(function (k) { return hasValue(state.answers[k]); }); }
+
+  function loadDraft() {
+    try {
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) { var d = JSON.parse(raw); state.answers = d.answers || {}; state.flagged = d.flagged || {}; state.elapsed = d.elapsed || 0; state.running = false; state.submitted = !!d.submitted; state.payload = d.payload || null; state.saved = !!d.saved; }
+    } catch (e) { /* storage unavailable: draft lives in memory only */ }
+  }
+  var saveTimer = null;
+  function saveDraft(now) {
+    function write() {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ answers: state.answers, flagged: state.flagged, elapsed: state.elapsed, submitted: state.submitted, payload: state.payload, saved: state.saved })); } catch (e) { }
+    }
+    if (now) { write(); return; }
+    clearTimeout(saveTimer); saveTimer = setTimeout(write, 400);
+  }
+
+  // ---------- render ----------
+  function optionHTML(q, letter, text, kind) {
+    var id = "q" + q.id + "-" + letter;
+    return '<label class="opt" for="' + id + '"><input type="' + kind + '" id="' + id + '" name="q' + q.id + '" value="' + esc(letter) + '" data-q="' + q.id + '"><span class="letter">' + esc(letter) + '</span><span class="otext">' + rich(text) + "</span></label>";
+  }
+  function tfHTML(q) {
+    function o(v, label) { var id = "q" + q.id + "-" + v; return '<label class="opt" for="' + id + '"><input type="radio" id="' + id + '" name="q' + q.id + '" value="' + v + '" data-q="' + q.id + '"><span class="letter">' + v + '</span><span class="otext">' + esc(label) + "</span></label>"; }
+    return '<div class="tf" role="radiogroup">' + o("T", T.t) + o("F", T.f) + "</div>";
+  }
+  function areaHTML(key, rows, label) {
+    return '<textarea id="a-' + key + '" data-key="' + key + '" rows="' + rows + '" placeholder="' + esc(T.placeholder) + '" aria-label="' + esc(label) + '"></textarea><div class="wc" id="wc-' + key + '">0 ' + esc(T.words) + "</div>";
+  }
+  function questionHTML(q) {
+    var rowsDefault = { short: 5, applied: 8, essay: 16 }[q.type] || 5;
+    var input = "";
+    if (q.type === "mcq") {
+      input = '<div class="opts" role="radiogroup">' + Object.keys(q.options).map(function (l) { return optionHTML(q, l, q.options[l], "radio"); }).join("") + "</div>";
+    } else if (q.type === "multi") {
+      input = '<div class="opts multi">' + Object.keys(q.options).map(function (l) { return optionHTML(q, l, q.options[l], "checkbox"); }).join("") + "</div>";
+    } else if (q.type === "tf") {
+      input = tfHTML(q);
+    } else if (q.subparts) {
+      input = q.subparts.map(function (sp) {
+        var key = String(q.id) + sp.label;
+        return '<div class="sub"><div class="sub-head"><b>(' + esc(sp.label) + ")</b><span>" + rich(sp.text).replace(/^<p>|<\/p>$/g, "") + "</span>" + (sp.points ? "<em>" + ptsLabel(sp.points) + "</em>" : "") + "</div>" + areaHTML(key, sp.lines || 6, "Question " + q.id + " part " + sp.label) + "</div>";
+      }).join("");
+    } else {
+      input = areaHTML(String(q.id), q.lines || rowsDefault, "Question " + q.id);
+    }
+    return '<article class="q" id="q' + q.id + '" data-id="' + q.id + '">' +
+      '<div class="qnum">' + q.id + "</div>" +
+      '<div class="qbody"><div class="qtags"><span>' + esc(T[q.type] || q.type) + "</span><b>" + ptsLabel(q.points) + "</b></div>" +
+      (q.context ? '<div class="ctx">' + rich(q.context) + "</div>" : "") +
+      '<div class="qtext">' + rich(q.text) + "</div>" + input +
+      '<div class="qfoot"><label><input type="checkbox" class="flagbox" data-q="' + q.id + '"> ' + esc(T.flag) + '</label><button type="button" class="link clear" data-q="' + q.id + '" hidden>' + esc(T.clear) + "</button></div></div></article>";
+  }
+  function build() {
+    var total = EXAM.total_points;
+    $("#kicker").textContent = T.kicker;
+    $("#title").textContent = EXAM.title;
+    var meta = [[T.level, EXAM.level], [T.format, EXAM.format_label || EXAM.format], [T.time, EXAM.time_guide_min + " " + T.minutes], [T.points, total + " " + T.pts], [T.pass, (EXAM.pass_mark_percent || 50) + "%"]];
+    $("#meta").innerHTML = meta.map(function (m) { return "<div><dt>" + esc(m[0]) + "</dt><dd>" + esc(m[1]) + "</dd></div>"; }).join("");
+    $("#rules").textContent = EXAM.instructions || "";
+    $("#rules").hidden = !EXAM.instructions;
+    $("#paper").innerHTML = EXAM.parts.map(function (p) {
+      var pts = p.questions.reduce(function (a, q) { return a + q.points; }, 0);
+      return '<section class="part"><div class="part-head"><h2>' + esc(p.title) + "</h2><span>" + ptsLabel(pts) + "</span></div>" +
+        (p.instructions ? '<p class="part-note">' + esc(p.instructions) + "</p>" : "") +
+        p.questions.map(questionHTML).join("") + "</section>";
+    }).join("");
+    $("#map").innerHTML = questions.map(function (q) { return '<button type="button" class="chip" data-go="' + q.id + '">' + q.id + "</button>"; }).join("") + '<div class="map-key">' + esc(T.mapKey) + "</div>";
+    $("#mapBtn").textContent = T.map;
+    $("#submitTitle").textContent = T.submitTitle; $("#submitHint").textContent = T.submitHint; $("#reviewBtn").textContent = T.reviewBtn;
+    $("#reviewTitle").textContent = T.reviewTitle; $("#noteLabel").textContent = T.note;
+    $("#submitBtn").textContent = T.submit; $("#backBtn").textContent = T.back;
+    $("#doneTitle").textContent = T.doneTitle; $("#copyBtn").textContent = T.copy; $("#saveBtn").textContent = T.save; $("#payloadSummary").textContent = T.payloadSummary;
+  }
+  function applyState() {
+    questions.forEach(function (q) {
+      var a = state.answers;
+      if (q.type === "mcq" || q.type === "tf") {
+        $$('input[data-q="' + q.id + '"]').forEach(function (i) { i.checked = a[String(q.id)] === i.value; });
+      } else if (q.type === "multi") {
+        var sel = a[String(q.id)] || [];
+        $$('input[data-q="' + q.id + '"]').forEach(function (i) { i.checked = sel.indexOf(i.value) >= 0; });
+      } else {
+        keysOf(q).forEach(function (k) { var t = document.getElementById("a-" + k); if (t) { t.value = a[k] || ""; countWords(t); } });
+      }
+      var fb = $('.flagbox[data-q="' + q.id + '"]'); if (fb) fb.checked = !!state.flagged[q.id];
+    });
+    refresh();
+  }
+  function countWords(t) { var n = t.value.trim() ? t.value.trim().split(/\s+/).length : 0; var w = document.getElementById("wc-" + t.dataset.key); if (w) w.textContent = n + " " + T.words; }
+
+  function refresh() {
+    var n = 0;
+    questions.forEach(function (q) {
+      var done = isAnswered(q); if (done) n++;
+      var chip = $('.chip[data-go="' + q.id + '"]'); if (chip) { chip.classList.toggle("done", done); chip.classList.toggle("flag", !!state.flagged[q.id]); }
+      var card = document.getElementById("q" + q.id); if (card) card.classList.toggle("flagged", !!state.flagged[q.id]);
+      var cl = $('.clear[data-q="' + q.id + '"]'); if (cl) cl.hidden = !done || state.submitted;
+    });
+    $("#progText").textContent = n + " / " + questions.length + " " + T.answered;
+    $("#fill").style.width = (questions.length ? (100 * n / questions.length) : 0) + "%";
+    return n;
+  }
+
+  // ---------- clock ----------
+  var tick = null;
+  function startClock() {
+    if (state.running || state.submitted) return;
+    state.running = true;
+    var base = Date.now() - state.elapsed * 1000;
+    tick = setInterval(function () { state.elapsed = Math.floor((Date.now() - base) / 1000); paintClock(); if (state.elapsed % 15 === 0) saveDraft(); }, 1000);
+  }
+  function stopClock() { state.running = false; clearInterval(tick); }
+  function paintClock() {
+    var el = $("#clock"), guide = (EXAM.time_guide_min || 0) * 60;
+    el.textContent = mmss(state.elapsed) + (guide ? " / " + EXAM.time_guide_min + " " + T.minutes : "");
+    el.classList.toggle("over", guide > 0 && state.elapsed > guide);
+    el.title = guide > 0 && state.elapsed > guide ? T.overtime : "";
+  }
+
+  // ---------- events ----------
+  function touch() { startClock(); refresh(); saveDraft(); }
+  $("#paper").addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.classList.contains("flagbox")) { if (t.checked) state.flagged[t.dataset.q] = true; else delete state.flagged[t.dataset.q]; refresh(); saveDraft(); return; }
+    if (t.type === "radio") { state.answers[t.dataset.q] = t.value; touch(); }
+    else if (t.type === "checkbox") {
+      var q = t.dataset.q;
+      state.answers[q] = $$('input[data-q="' + q + '"]:checked').map(function (i) { return i.value; }).sort();
+      touch();
+    }
+  });
+  $("#paper").addEventListener("input", function (e) {
+    var t = e.target; if (t.tagName !== "TEXTAREA") return;
+    state.answers[t.dataset.key] = t.value; countWords(t); touch();
+  });
+  $("#paper").addEventListener("click", function (e) {
+    var b = e.target.closest(".clear"); if (!b) return;
+    var q = questions.filter(function (x) { return String(x.id) === b.dataset.q; })[0];
+    keysOf(q).forEach(function (k) { delete state.answers[k]; });
+    applyState(); saveDraft();
+  });
+  $("#mapBtn").addEventListener("click", function () {
+    var m = $("#map"); m.hidden = !m.hidden;
+    $("#mapBtn").setAttribute("aria-expanded", String(!m.hidden));
+    $("#mapBtn").textContent = m.hidden ? T.map : T.closeMap;
+  });
+  function goTo(id) { var el = document.getElementById("q" + id); if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); } }
+  $("#map").addEventListener("click", function (e) { var c = e.target.closest(".chip"); if (c) goTo(c.dataset.go); });
+
+  // ---------- review and submit ----------
+  function chipsFor(list) { return '<div class="row" style="gap:6px">' + list.map(function (id) { return '<button type="button" class="chip" data-jump="' + id + '">' + id + "</button>"; }).join("") + "</div>"; }
+  $("#reviewBtn").addEventListener("click", function () {
+    var open = questions.filter(function (q) { return !isAnswered(q); }).map(function (q) { return q.id; });
+    var flagged = questions.filter(function (q) { return state.flagged[q.id]; }).map(function (q) { return q.id; });
+    var html = "";
+    if (open.length) html += '<div class="warn"><strong>' + esc(T.unanswered) + " (" + open.length + ").</strong> " + esc(T.unansweredWarn) + chipsFor(open) + "</div>";
+    else html += "<p>" + esc(T.allAnswered) + "</p>";
+    if (flagged.length) html += "<div><strong style=\"font:600 .9rem var(--font-ui)\">" + esc(T.flagged) + " (" + flagged.length + ")</strong>" + chipsFor(flagged) + "</div>";
+    $("#reviewBody").innerHTML = html;
+    $("#review").hidden = false; $("#review").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("#reviewBody").addEventListener("click", function (e) { var c = e.target.closest("[data-jump]"); if (c) goTo(c.dataset.jump); });
+  $("#backBtn").addEventListener("click", function () { $("#review").hidden = true; });
+
+  function buildPayload() {
+    var answers = {};
+    questions.forEach(function (q) {
+      keysOf(q).forEach(function (k) {
+        var v = state.answers[k];
+        if (hasValue(v)) answers[k] = Array.isArray(v) ? v.slice().sort() : (q.type === "mcq" || q.type === "tf" || q.type === "multi" ? v : String(v).trim());
+      });
+    });
+    return {
+      exam_id: EXAM.exam_id, topic_slug: EXAM.topic_slug || null, submitted_at: new Date().toISOString(),
+      elapsed_seconds: state.elapsed, time_guide_minutes: EXAM.time_guide_min || null,
+      answers: answers,
+      unanswered: questions.filter(function (q) { return !isAnswered(q); }).map(function (q) { return q.id; }),
+      flagged: questions.filter(function (q) { return state.flagged[q.id]; }).map(function (q) { return q.id; }),
+      note: $("#note").value.trim()
+    };
+  }
+  function claudeUse(name) {
+    try { if (window.claude && typeof window.claude.use === "function") return window.claude.use(name).catch(function () { return null; }); } catch (e) { }
+    return Promise.resolve(null);
+  }
+  function persist(payload) {
+    return claudeUse("db").then(function (db) {
+      if (!db) return false;
+      return db.doc("submissions/" + EXAM.exam_id).set({ exam_id: EXAM.exam_id, submitted_at: payload.submitted_at, payload: payload }).then(function () { return true; }, function () { return false; });
+    });
+  }
+  function lock() {
+    stopClock(); state.submitted = true;
+    $("#root").classList.add("lock");
+    $$("#paper input, #paper textarea, #note").forEach(function (i) { i.disabled = true; });
+    $("#submitZone").hidden = true; $("#review").hidden = true; refresh();
+  }
+  function showDone(payload, saved) {
+    $("#done").hidden = false;
+    var st = $("#doneStatus");
+    st.textContent = saved ? T.savedOk : T.savedFail; st.className = "status " + (saved ? "good" : "bad");
+    $("#payload").value = JSON.stringify(payload, null, 1);
+    $("#payloadBox").open = !saved;
+    claudeUse("downloads").then(function (dl) { if (dl) $("#saveBtn").hidden = false; });
+    $("#done").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  $("#submitBtn").addEventListener("click", function () {
+    $("#submitBtn").disabled = true;
+    var payload = buildPayload();
+    state.payload = payload; lock(); saveDraft(true);
+    persist(payload).then(function (ok) { state.saved = ok; saveDraft(true); showDone(payload, ok); });
+  });
+  $("#copyBtn").addEventListener("click", function () {
+    var ta = $("#payload"), text = ta.value, btn = $("#copyBtn");
+    function fallback() { $("#payloadBox").open = true; ta.focus(); ta.select(); btn.textContent = T.copyFail; }
+    try { navigator.clipboard.writeText(text).then(function () { btn.textContent = T.copied; setTimeout(function () { btn.textContent = T.copy; }, 1800); }, fallback); } catch (e) { fallback(); }
+  });
+  $("#saveBtn").addEventListener("click", function () {
+    claudeUse("downloads").then(function (dl) { if (dl) dl.save({ filename: "answers-" + EXAM.exam_id + ".json", data: $("#payload").value }).catch(function () { }); });
+  });
+
+  // ---------- boot ----------
+  build();
+  loadDraft();
+  applyState();
+  paintClock();
+  if (state.submitted && state.payload) { lock(); showDone(state.payload, state.saved); }
+  else {
+    // a submission stored by an earlier visit on another device also locks the paper
+    claudeUse("db").then(function (db) {
+      if (!db || state.submitted) return;
+      db.doc("submissions/" + EXAM.exam_id).get().then(function (snap) {
+        if (snap && snap.exists && !state.submitted) { var d = snap.data(); state.payload = d && d.payload; state.saved = true; lock(); showDone(state.payload || {}, true); }
+      }, function () { });
+    });
+  }
+})();
+</script>

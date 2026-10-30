@@ -1,11 +1,11 @@
 ---
 name: "knowledge-check"
-description: "Use when the user wants to test what he learned from a source (PDF, web page, doc, slides, video transcript, notes) — builds a university-standard exam (Mixed format with open questions, or Closed-form with only multiple-choice, multiple-answer and true/false), grades it, and logs the result to the project to track progress. Also handles /knowledge-check help and progress."
+description: "Use when the user wants to test what he learned from a source (PDF, web page, doc, slides, video transcript, notes) — builds a university-standard exam (Mixed format with open questions, or Closed-form with only multiple-choice, multiple-answer and true/false) that he takes on an interactive web page Claude builds (clickable answers, text boxes, clock) instead of typing answers in the chat, grades it, and logs the result to the project to track progress. Also handles /knowledge-check help and progress."
 ---
 
 # Knowledge Check — university-standard exam from a learning source
 
-the user learns from many kinds of material and wants an honest, exam-grade check of what he actually retained. This skill runs the full cycle: **ingest the source → build an exam → the user answers → grade → save structured results → compare with earlier attempts**.
+the user learns from many kinds of material and wants an honest, exam-grade check of what he actually retained. This skill runs the full cycle: **ingest the source → build an exam → the user takes it on an interactive page → grade → save structured results → compare with earlier attempts**.
 
 the user chooses between two exam **formats** (§2): **Mixed** (the default — multiple choice, short answer, applied problems and an essay) or **Closed-form** (only multiple choice, multiple answer and true/false: quick to answer, objectively graded). Everything below applies to both formats unless a section says otherwise.
 
@@ -39,8 +39,10 @@ How to use it
    • Length: Short ~30 min · Standard ~60 min (default) · Full ~90 min
    • Format: Mixed (default) · Closed-form
      (Closed-form lengths: Short 30 · Standard 80 · Full 120 questions)
-3. Answer the whole exam in one reply, numbered by question ("1: B", "9: …";
-   closed-form: "15: A, C", "27: T"). Closed book — hints are allowed but recorded.
+3. Take the exam on an interactive page that Claude builds for you: click
+   your answers, write the open ones in text boxes, watch the clock, flag
+   questions to revisit. Press Submit, then tell Claude you're done.
+   Closed book — wording clarifications are allowed but recorded.
 4. Get your grade (% + German grade 1.0–5.0, pass at 50%), feedback per question
    with the model answer and where to re-read it, and study recommendations.
 
@@ -159,11 +161,26 @@ True/false stays at or below ~15% of the points: a blind guess is right half the
 - *Multiple answer*: the stem says "select all that apply". Each option must be clearly true or clearly false on its own — never make one option depend on another, and never use "A and B" combinations. Vary the number of correct options (mostly 2–3, sometimes 1 or 4, never 0 or all 5) so counting can't be used as a strategy.
 - *True/false*: one idea per statement, written as a complete sentence. Avoid double negatives and absolute words ("always", "never", "only") unless the source really makes an absolute claim — otherwise they act as giveaways. Keep the split roughly balanced (about 40–60% true) and make false statements plausible — the opposite of a nearby true fact or a typical misconception, not obviously absurd.
 
-**Answer key first.** Before showing the exam, write to the scratchpad `answer_key.md`: for each question, the model answer, an analytic rubric (what earns each point, what earns partial credit), and the source reference. This keeps grading consistent and must not be shown to the user before he submits. For the Closed-form format the "rubric" is simply the correct answer (letter, letters, or True/False) plus one line per wrong option naming the misconception it targets, and — for a false statement — the corrected statement; these lines power the feedback in §5.
+**Answer key first.** Before building the exam page, write to the scratchpad `answer_key.md`: for each question, the model answer, an analytic rubric (what earns each point, what earns partial credit), and the source reference. This keeps grading consistent and must not be shown to the user before he submits. For the Closed-form format the "rubric" is simply the correct answer (letter, letters, or True/False) plus one line per wrong option naming the misconception it targets, and — for a false statement — the corrected statement; these lines power the feedback in §5. Also write the machine-readable `answer_key.json` for the closed questions (`mcq`, `multi`, `tf`: type, points, correct answer; format in `references/exam-page.md`) so `scripts/grade_closed.py` can score them in §5. Neither key file goes into the exam page or into any published file.
 
-## 4. Present the exam (whole exam at once)
+## 4. Present the exam as an interactive page
 
-Format like a real exam paper. This layout is for the **Mixed** format; for **Closed-form** use the layout right after it.
+the user takes the exam on a web page, not by typing answers into the chat. The page has real inputs (radio buttons, checkboxes, True/False buttons, text boxes), a clock against the time guide, a question map and a review step before submitting. Claude does all the grading afterwards, because open answers need judgement and because the answer key must never be inside the page: the page is published, so its source is readable. Full details, the exam data format and the payload are in `references/exam-page.md`; read it now. Paths such as `scripts/…` and `assets/…` are relative to this skill's folder.
+
+1. **Write `exam.json`** to the scratchpad: questions only, in the order the user will see them. No answers, rubrics or explanations. The builder rejects the file if it finds such fields.
+2. **Build** with `python3 scripts/build_exam_page.py exam.json exam_page.html`. It checks the question types against the format, option counts and point totals, and fails loudly on a mistake. Translate the page's own labels through the optional `ui` object when the exam is not in English.
+3. **Publish** `exam_page.html` with the Artifact tool, declaring `capabilities: {db: {}, downloads: true}` (load the `artifact-capabilities` skill first if you have not). The page writes the submitted answers to its own database, which is how they reach you.
+4. **Tell the user** in a line or two: take the exam on the page, press Submit, then say "done" here. Don't restate the questions in chat, and don't paste the link, since the card carries it.
+
+If there is no Artifact tool (a terminal session, say), build with `--standalone`, save the HTML next to the project files and have the user open it in his browser; he then copies the answers text from the page and pastes it into the chat. If a page is not possible at all, use the chat layout below.
+
+The template is already tested, so don't screenshot or tweak the page. Keep the `url` from the publish result: you need it in §4b. The one functional check that a page with declared capabilities gets is a single `ArtifactData` `list` of the `submissions` collection, which is expected to be empty before the user submits; say in one line that the submit write itself can only be exercised once he presses Submit. Re-publish only if the user reports something broken.
+
+Exam integrity: while the exam is open, don't reveal answers or hint at them, and keep the answer key out of every published file. If the user asks for a hint or a clarification, clarify the *question's wording* only, and note in the record that a hint was given (the review step's note field serves the same purpose). If he stops midway, ask him to press Submit so unanswered questions are recorded as unanswered; if he cannot, grade what he sent and mark the rest as 0 with `"answered": false`.
+
+### Fallback: exam in the chat
+
+Format it like a real exam paper. This layout is for the **Mixed** format; for **Closed-form** use the layout right after it.
 
 ```
 EXAM — <Topic>
@@ -202,17 +219,23 @@ Part C — True / false (<n> pts)
 23. [1 pt] <statement> — True or False?
 ```
 
-Accept any unambiguous answer format ("1B 2AC 3T", a list, a table).
+Accept any unambiguous answer format ("1B 2AC 3T", a list, a table) and treat it as the submission in §4b.
 
-For long exams, publish it as a doc or file only if the user asks; by default present it in the chat.
+## 4b. Collect the submission
 
-Exam integrity: while the exam is open, don't reveal answers or hint at them. If the user asks for a hint or a clarification, clarify the *question's wording* only, and note in the record that a hint was given. If he stops midway, grade what he submitted and mark unanswered questions as 0 with `"answered": false`.
+When the user says he is done, get his answers; the formats are in `references/exam-page.md`:
+
+1. Read the page database: `ArtifactData` with the exam artifact's `url`, action `get`, collection `submissions`, document `<exam_id>` (load the tool with ToolSearch if needed). The answers are in its `payload` field.
+2. Otherwise use the JSON he pasted from the page or an `answers-<exam_id>.json` file he saved, or answers typed in the chat.
+3. If no submission exists yet, he has probably not pressed Submit. Ask him to, instead of grading a half-finished exam.
+
+Keep the payload in the scratchpad as `submission.json`. `elapsed_seconds` gives the real time taken; mention it when it is well over the time guide, since that makes the score harder to compare. `note` holds his comments on question wording: answer them in the feedback. `flagged` lists questions he was unsure about, which is useful input for the study recommendations.
 
 ## 5. Grade and give feedback
 
 Grade strictly against `answer_key.md` — same rigor a university examiner would use: credit correct substance even if phrased differently, give partial credit per the rubric, deduct for factual errors even inside an otherwise good answer, and don't reward length.
 
-**Closed-form scoring.** Closed questions leave no room for interpretation, so apply these rules exactly and run the arithmetic in Python rather than in your head — a mis-added point changes the grade.
+**Closed-form scoring.** Closed questions leave no room for interpretation, so apply these rules exactly and run the arithmetic in Python rather than in your head — a mis-added point changes the grade. `scripts/grade_closed.py answer_key.json submission.json` implements exactly these rules for `mcq`, `multi` and `tf`; for a Mixed exam it scores the multiple-choice part and lists the open questions for you to grade by rubric.
 - *Multiple choice* — full points if the chosen option is the correct one, otherwise 0.
 - *True/false* — full point if the verdict matches, otherwise 0.
 - *Multiple answer* — +1 for every correct option ticked, −1 for every wrong option ticked; points = max(0, net ÷ number of correct options) × question points. Example: 3 pts, correct set {A, C}; answering A, C, D gives (2 − 1) ÷ 2 × 3 = 1.5 pts; answering all five options gives 0. The penalty is what makes "tick everything" a losing strategy.
@@ -284,6 +307,7 @@ Record schema (`schema_version: 1`):
     }
   ],
   "hints_used": 0,
+  "duration_seconds": 3412,
   "strengths": ["…"],
   "gaps": ["…"],
   "recommendations": ["Re-read pp. 12-15 on …"],
@@ -291,7 +315,7 @@ Record schema (`schema_version: 1`):
 }
 ```
 
-Field rules: `format` ∈ `mixed | closed` (records written before this field existed count as `mixed`); question `type` ∈ `mcq | short | applied | essay` in the Mixed format and `mcq | multi | tf` in the Closed-form format; `partial` results can occur for every type except `mcq` and `tf`. `result` ∈ `correct | partial | incorrect | unanswered`; `mastery` ∈ `strong` (≥80%) `| partial` (50–79%) `| weak` (<50%); `level` ∈ `bachelor_intro | bachelor_advanced | master`; `attempt_number` counts prior records with the same `topic_slug` + 1; `previous_test_id` is the latest earlier record with that slug. Store the question text (for no-repeat checks) but not the user's full answer text — a one-line gist in `feedback` is enough.
+Field rules: `format` ∈ `mixed | closed` (records written before this field existed count as `mixed`); question `type` ∈ `mcq | short | applied | essay` in the Mixed format and `mcq | multi | tf` in the Closed-form format; `partial` results can occur for every type except `mcq` and `tf`. `result` ∈ `correct | partial | incorrect | unanswered`; `mastery` ∈ `strong` (≥80%) `| partial` (50–79%) `| weak` (<50%); `level` ∈ `bachelor_intro | bachelor_advanced | master`; `attempt_number` counts prior records with the same `topic_slug` + 1; `previous_test_id` is the latest earlier record with that slug. `duration_seconds` is the page's `elapsed_seconds` (null when the exam was taken in the chat). Store the question text (for no-repeat checks) but not the user's full answer text — a one-line gist in `feedback` is enough.
 
 ## 7. Progress and comparisons
 
