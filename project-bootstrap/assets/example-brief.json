@@ -1,0 +1,34 @@
+{
+  "project": {"name": "LinkCheck", "one_liner": "A command-line tool that scans a folder of Markdown files and reports broken links.", "mode": "new"},
+  "stack_profile": "node-ts",
+  "walking_skeleton": "a CLI command that reads one Markdown file and prints the URLs it finds",
+  "summary": "LinkCheck is a CLI for documentation maintainers. It walks a directory of Markdown files, extracts links, checks that each target responds and exits non-zero when any link is broken, so it can run in CI.",
+  "product_goal": "Fail a docs build reliably when a link is broken, with output a maintainer can act on.",
+  "users": [{"who": "Docs maintainer", "needs": "run it locally and in CI; get a list of broken links with file and line"}],
+  "scope": {"mvp": ["scan files", "check http(s) links", "exit code and report"], "later": ["internal anchor checks", "caching"], "out": ["fixing links automatically"]},
+  "requirements": {
+    "functional": [
+      {"key": "scan", "text": "The tool extracts inline and reference links from all .md files under a directory."},
+      {"key": "check", "text": "Each http(s) link is requested and reported as ok, redirected or broken."},
+      {"key": "exit", "text": "The process exits with code 1 if any link is broken, otherwise 0."},
+      {"key": "anchors", "phase": "later", "text": "Links to anchors inside the same repo are verified."}
+    ],
+    "non_functional": [{"key": "speed", "category": "performance", "text": "Checks run concurrently; 500 links finish in under 60 seconds on a normal connection."}]
+  },
+  "stack": [{"layer": "Language", "choice": "TypeScript on Node 20", "notes": "stated by owner"}, {"layer": "Distribution", "choice": "npm package with a bin entry", "notes": "proposed"}],
+  "assumptions": [{"kind": "TBD", "text": "Whether private or authenticated URLs must be supported"}, {"kind": "ASSUMED", "text": "Open-source project hosted on GitHub"}],
+  "decisions": [
+    {"title": "TypeScript on Node 20", "status": "Accepted", "context": "Owner works in TypeScript.", "decision": "Implement the CLI in TypeScript targeting Node 20.", "consequences": "Requires a build step before publishing."},
+    {"key": "fetch", "title": "Use the built-in fetch API with a concurrency limit", "status": "Proposed", "context": "Avoid heavy HTTP dependencies for a small tool.", "decision": "Use global fetch with a small worker pool.", "consequences": "No automatic retries unless implemented ({bl:retries})."}
+  ],
+  "claude": {"layout": ["`src/` - CLI entry and checker modules", "`test/` - vitest suite with fixture Markdown files"], "commands": {"run": "node dist/cli.js ./docs"}, "conventions": ["No network calls in unit tests; mock fetch"], "do_not": ["follow redirects more than 5 hops"]},
+  "devops": {"team": "solo", "repo": "TBD"},
+  "backlog": [
+    {"key": "extract", "epic": "E1 Scan", "title": "Extract links from Markdown", "type": "Story", "estimate": 3, "description": "As a maintainer, I want all links found in my .md files, so that none are missed ({fr:scan}).", "ac": ["Inline and reference links are found", "Results include file and line"], "depends_on": ["f-skeleton"]},
+    {"key": "check", "epic": "E2 Check", "title": "Check http(s) links concurrently", "type": "Story", "estimate": 5, "description": "As a maintainer, I want each link verified, so that broken ones are reported ({fr:check}, {nfr:speed}).", "ac": ["ok, redirected and broken are distinguished", "Concurrency is limited and configurable"], "depends_on": ["extract"]},
+    {"key": "exit", "epic": "E2 Check", "title": "Report and exit code", "type": "Story", "estimate": 2, "description": "As CI, I want a non-zero exit code on broken links ({fr:exit}).", "ac": ["Exit code 1 when any link is broken", "Report lists file, line and status"], "depends_on": ["check"]},
+    {"key": "retries", "epic": "E2 Check", "title": "Retry transient failures", "type": "Task", "priority": "Should", "estimate": 2, "description": "Retry timeouts and 5xx once before reporting a link as broken ({dec:fetch}).", "ac": ["A flaky link passes on retry"], "depends_on": ["check"]},
+    {"key": "publish", "epic": "E3 Release", "title": "Publish to npm", "type": "Chore", "priority": "Should", "estimate": 2, "description": "Publish the first 0.1.0 release following DEV_OPS.md.", "ac": ["npx linkcheck runs from the published package"], "depends_on": ["exit"]},
+    {"key": "anchors", "epic": "E4 Later", "title": "Verify in-repo anchors", "type": "Story", "priority": "Could", "estimate": 5, "description": "Verify links that point to headings inside the repo ({fr:anchors}).", "ac": ["A link to a missing heading is reported"], "depends_on": ["exit"]}
+  ]
+}

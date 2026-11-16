@@ -1,0 +1,99 @@
+{
+  "name": "node-ts",
+  "version_file": "package.json",
+  "ci_checks": [
+    "lint (eslint)",
+    "type-check (tsc)",
+    "tests (vitest)"
+  ],
+  "default_commands": {
+    "install": "npm install",
+    "test": "npm test",
+    "lint": "npm run lint",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build"
+  },
+  "items": [
+    {
+      "key": "f-repo",
+      "title": "Initialise repository and TypeScript project",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Create the git repo, package.json, tsconfig.json with strict mode, .gitignore (node_modules, dist, .env), a README stub and .env.example.",
+      "ac": [
+        "npm install succeeds on a clean checkout",
+        "tsc compiles an empty entry point",
+        ".env and build output are gitignored"
+      ],
+      "depends_on": []
+    },
+    {
+      "key": "f-tooling",
+      "title": "Set up test, lint and type-check tooling",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Configure vitest, eslint and prettier, add typecheck, lint and test scripts and one smoke test.",
+      "ac": [
+        "npm test passes",
+        "npm run lint is clean",
+        "npm run typecheck passes"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-ci",
+      "title": "Add CI pipeline",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Run lint, type-check and tests on every pull request and push to main using the CI system named in DEV_OPS.md.",
+      "ac": [
+        "Workflow runs on pull requests and on push to main",
+        "A failing test turns the check red"
+      ],
+      "depends_on": [
+        "f-tooling"
+      ]
+    },
+    {
+      "key": "f-config",
+      "title": "Configuration and secrets handling",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Load settings from environment variables with validation; keep .env out of git and document every variable in .env.example.",
+      "ac": [
+        "A missing required variable fails fast with a clear message",
+        "No secret is committed",
+        ".env.example lists every variable"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-skeleton",
+      "title": "Walking skeleton",
+      "type": "Task",
+      "estimate": 3,
+      "status": "Backlog",
+      "description": "Build the thinnest end-to-end slice that runs: {skeleton}",
+      "ac": [
+        "The slice runs end to end locally",
+        "It is covered by at least one automated test"
+      ],
+      "depends_on": [
+        "f-tooling",
+        "f-config"
+      ]
+    }
+  ],
+  "commands_after": {
+    "install": "f-repo",
+    "default": "f-tooling"
+  }
+}

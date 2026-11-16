@@ -1,0 +1,98 @@
+{
+  "name": "python",
+  "version_file": "pyproject.toml",
+  "ci_checks": [
+    "lint (ruff)",
+    "type-check (mypy)",
+    "tests (pytest)"
+  ],
+  "default_commands": {
+    "install": "pip install -e \".[dev]\"",
+    "test": "pytest",
+    "lint": "ruff check .",
+    "typecheck": "mypy src"
+  },
+  "items": [
+    {
+      "key": "f-repo",
+      "title": "Initialise repository and Python project layout",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Create the git repo, pyproject.toml with a src/ layout, .gitignore (venv, __pycache__, .env, *.db), a README stub and .env.example.",
+      "ac": [
+        "Fresh clone installs in a clean virtualenv",
+        "Package imports without error",
+        ".env and local databases are gitignored"
+      ],
+      "depends_on": []
+    },
+    {
+      "key": "f-tooling",
+      "title": "Set up test, lint and type-check tooling",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Configure pytest, ruff and mypy in pyproject.toml and add one smoke test.",
+      "ac": [
+        "pytest passes",
+        "ruff check . is clean",
+        "mypy passes"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-ci",
+      "title": "Add CI pipeline",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Run lint, type-check and tests on every pull request and push to main using the CI system named in DEV_OPS.md.",
+      "ac": [
+        "Workflow runs on pull requests and on push to main",
+        "A failing test turns the check red"
+      ],
+      "depends_on": [
+        "f-tooling"
+      ]
+    },
+    {
+      "key": "f-config",
+      "title": "Configuration and secrets handling",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Load settings from environment variables with validation; keep .env out of git and document every variable in .env.example.",
+      "ac": [
+        "A missing required variable fails fast with a clear message",
+        "No secret is committed",
+        ".env.example lists every variable"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-skeleton",
+      "title": "Walking skeleton",
+      "type": "Task",
+      "estimate": 3,
+      "status": "Backlog",
+      "description": "Build the thinnest end-to-end slice that runs: {skeleton}",
+      "ac": [
+        "The slice runs end to end locally",
+        "It is covered by at least one automated test"
+      ],
+      "depends_on": [
+        "f-tooling",
+        "f-config"
+      ]
+    }
+  ],
+  "commands_after": {
+    "install": "f-repo",
+    "default": "f-tooling"
+  }
+}

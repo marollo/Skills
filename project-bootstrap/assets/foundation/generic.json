@@ -1,0 +1,73 @@
+{
+  "name": "generic",
+  "version_file": "git tags",
+  "ci_checks": [
+    "automated checks that exist for this project"
+  ],
+  "default_commands": {},
+  "items": [
+    {
+      "key": "f-repo",
+      "title": "Initialise repository and project layout",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Create the git repo with the agreed directory layout, .gitignore, a README stub and a place for configuration examples.",
+      "ac": [
+        "Fresh clone has the agreed layout",
+        "Secrets and generated files are gitignored"
+      ],
+      "depends_on": []
+    },
+    {
+      "key": "f-config",
+      "title": "Configuration and secrets handling",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Decide and implement how configuration and secrets are supplied; document every setting in an example file.",
+      "ac": [
+        "No secret is committed",
+        "Every setting is documented in the example file"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-ci",
+      "title": "Add repeatable checks and CI",
+      "type": "Task",
+      "estimate": 2,
+      "status": "Ready",
+      "description": "Define the repeatable checks for this project (tests, lint, build or equivalent) and run them automatically on every change.",
+      "ac": [
+        "Checks run with one documented command",
+        "They run automatically on pull requests"
+      ],
+      "depends_on": [
+        "f-repo"
+      ]
+    },
+    {
+      "key": "f-skeleton",
+      "title": "Walking skeleton",
+      "type": "Task",
+      "estimate": 3,
+      "status": "Backlog",
+      "description": "Build the thinnest end-to-end slice that runs: {skeleton}",
+      "ac": [
+        "The slice runs end to end",
+        "At least one repeatable check covers it"
+      ],
+      "depends_on": [
+        "f-config",
+        "f-ci"
+      ]
+    }
+  ],
+  "commands_after": {
+    "install": "f-repo",
+    "default": "f-repo"
+  }
+}
